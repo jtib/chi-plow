@@ -5,7 +5,7 @@ from tensorflow.python.layers.utils import smart_cond
 from tensorflow.python.ops.variable_scope import get_local_variable
 
 import chi
-from chi import model
+from chi import Experiment
 from chi.rl import ReplayMemory
 from chi.rl.async import AsyncDQNAgent
 from chi.rl.util import print_env
@@ -20,7 +20,7 @@ import gym_plow7
 
 import numpy as np
 
-@experiment
+@chi.experiment
 def ddpg_crossroads(self: Experiment, logdir=None):
     env = gym.make('plow7-v0')
     env = wrappers.Monitor(env, logdir + '/monitor', video_callable=None)
@@ -28,12 +28,45 @@ def ddpg_crossroads(self: Experiment, logdir=None):
 
     print_env(env)
 
-    m = ReplayMemory(100000) #TODO: check this value
+    mem = ReplayMemory(100000) #TODO: check this value
 
-    @chi.model(tracker=tf.train.ExponentialMovingAverage(1 - .0005),
-            optimizer=tf.train.RMSPropOptimizer(.00025, .95, .95, .01))#is this the best optimizer for this case?
-    def q_network(x):
-        # fully connected NN with 2 layers, 300 and 600 units resp.
+    @chi.model(optimizer=tf.train.AdamOptimizer(.00005),
+            tracker=tf.train.ExponentialMovingAverage(1-.0005))
+    def preprocess(x):
+        print(x.shape)
+        x = tf.concat([tf.maximum(x, 0), -tf.minimum(x, 0)], 1)
         x = layers.fully_connected(x, 300)
-        x = layers.fully_connected(x, 600)
+        x = layers.fully_connected(x, 300)
         return x
+
+    @chi.model(optimizer=tf.train.AdamOptimizer(0.0001),
+            tracker = tf.train.ExponentialMovingAverage(1-.001))
+    def actor(x, noise=False):
+        x = layers.fully_connected(x, 300, biases_initializer=layers.xavier_initializer())
+        x = layers.fully_connected(x, 300, biases_initializer=layers.xavier_initializer())
+        a = layers.fully_connected(x, env.action_space.shape[0], None,
+                weights_initializer=tf.random_normal_initializer(0, 1e-4))
+        return a
+
+    @chi.model(optimizer=tf.train.AdamOptimizer(.001),
+            tracker=tf.train.ExponentialMovingAverage(1-.001))
+    def critic(x, a):
+        x = layers.fully_connected(x, 300,
+                biases_initializer=layers.xavier_initializer())
+        x = tf.concat([x, a], axis=1)
+        x = layers.fully_connected(x, 300,
+                biases_initializer=layers.xavier_initializer())
+        x = layers.fully_connected(x, 300,
+                biases_initializer=layers.xavier_initializer())
+        q = layers.fully_connected(x, 1, None,
+                weights_initializer=tf.random_normal_initializer(0, 1e-4))
+        return tf.squeeze(q, 1)
+
+    agent = DdpgAgent(env, actor, critic, preprocess, mem, training_repeats=5)
+
+    for ep in range(100000):
+        ret, _ = agent.play_episode()
+
+        if ep % 100 == 0:
+            print(f'Episode {ep}: R={ret}, t={agent.t})')
+            getattr(getattr(env, 'unwrapped', env), 'report', lambda: None)()

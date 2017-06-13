@@ -7,7 +7,6 @@ from tensorflow.python.ops.variable_scope import get_local_variable
 import chi
 from chi import Experiment
 from chi.rl import ReplayMemory
-from chi.rl.async import AsyncDQNAgent
 from chi.rl.util import print_env
 from chi.util import log_top
 from chi.rl.ddpg import DdpgAgent

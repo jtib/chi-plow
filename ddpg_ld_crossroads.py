@@ -22,9 +22,10 @@ import numpy as np
 @chi.experiment
 def ddpg_crossroads(self: Experiment, logdir=None):
     env = gym.make('plow7-v0')
-    env.setNbFb(7);
+    env.setNbFb(7)
+    env.setMaxSpeed(25)
+    env.setMinSpeed(2)
     env = wrappers.Monitor(env, logdir + '/monitor', video_callable=None)
-    env = PenalizeAction(env) #TODO: check if useful
 
     print_env(env)
 

@@ -19,17 +19,18 @@ import gym_plow7
 
 import numpy as np
 
+import sys
+
 @chi.experiment
 def ddpg_crossroads(self: Experiment, logdir=None):
     env = gym.make('plow7-v0')
-    env.setNbFb(7)
-    env.setMaxSpeed(25)
-    env.setMinSpeed(2)
+    env.setParams(8, 2, 25, "numeric") # number of robots, minimum speed, maximum speed, state type
     env = wrappers.Monitor(env, logdir + '/monitor', video_callable=None)
+    env = PenalizeAction(env);
 
     print_env(env)
 
-    mem = ReplayMemory(100000) #TODO: check this value
+    mem = ReplayMemory(100000)
 
     @chi.model(optimizer=tf.train.AdamOptimizer(.00005),
             tracker=tf.train.ExponentialMovingAverage(1-.0005))
@@ -47,6 +48,8 @@ def ddpg_crossroads(self: Experiment, logdir=None):
         x = layers.fully_connected(x, 300, biases_initializer=layers.xavier_initializer())
         a = layers.fully_connected(x, env.action_space.shape[0], None,
                 weights_initializer=tf.random_normal_initializer(0, 1e-4))
+        sys.stderr.write(f'action: {a}')
+        sys.stderr.flush()
         return a
 
     @chi.model(optimizer=tf.train.AdamOptimizer(.001),

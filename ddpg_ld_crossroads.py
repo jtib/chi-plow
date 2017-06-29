@@ -24,7 +24,7 @@ import sys
 @chi.experiment
 def ddpg_crossroads(self: Experiment, logdir=None):
     env = gym.make('plow7-v0')
-    env.setParams(8, 2, 25, "numeric") # number of robots, minimum speed, maximum speed, state type
+    env.setParams(8, 2, 25, "numerical") # number of robots, minimum speed, maximum speed, state type
     env = wrappers.Monitor(env, logdir + '/monitor', video_callable=None)
     env = PenalizeAction(env);
 
